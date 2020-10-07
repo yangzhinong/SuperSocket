@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SuperSocket;
@@ -14,9 +12,9 @@ namespace CommandServer
 {
     class Program
     {
-        static IHostBuilder CreateSocketServerBuilder()
+        static IHostBuilder CreateSocketServerBuilder(string[] args)
         {
-            return SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePipelineFilter>()
+            return SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePipelineFilter>(args)
                 .UseCommand((commandOptions) =>
                 {
                     // register commands one by one
@@ -44,7 +42,7 @@ namespace CommandServer
 
         static async Task Main(string[] args)
         {
-            var host = CreateSocketServerBuilder().Build();        
+            var host = CreateSocketServerBuilder(args).Build();        
             await host.RunAsync();
         }
     }

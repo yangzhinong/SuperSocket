@@ -24,12 +24,9 @@ namespace SuperSocket.ProtoBase
             {
                 var beginMark = _beginMark.Span;
 
-                for (var i = 0; i < beginMark.Length - 1; i++)
+                if (!reader.IsNext(beginMark, advancePast: true))
                 {
-                    if (!reader.IsNext(beginMark, advancePast: true))
-                    {
-                        throw new ProtocolException("Invalid beginning part of the package.");
-                    }
+                    throw new ProtocolException("Invalid beginning part of the package.");
                 }
 
                 _foundBeginMark = true;
@@ -37,20 +34,13 @@ namespace SuperSocket.ProtoBase
 
             var endMark =  _endMark.Span;
 
-            if (!reader.TryReadToAny(out ReadOnlySequence<byte> pack, endMark, advancePastDelimiter: false))
+            if (!reader.TryReadTo(out ReadOnlySequence<byte> pack, endMark, advancePastDelimiter: false))
             {
                 return null;
             }
 
-            for (var i = 0; i < endMark.Length - 1; i++)
-            {
-                if (!reader.IsNext(endMark, advancePast: true))
-                {
-                    return null;
-                }
-            }
-
-            return DecodePackage(pack);
+            reader.Advance(endMark.Length);
+            return DecodePackage(ref pack);
         }
 
         public override void Reset()

@@ -14,21 +14,31 @@ namespace SuperSocket.SessionContainer
 
         public InProcSessionContainerMiddleware(IServiceProvider serviceProvider)
         {
+            Order = int.MaxValue; // make sure it is the last middleware
             _sessions = new ConcurrentDictionary<string, IAppSession>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public override void Register(IServer server, IAppSession session)
+        public override ValueTask<bool> RegisterSession(IAppSession session)
         {
+            if (session is IHandshakeRequiredSession handshakeSession)
+            {
+                if (!handshakeSession.Handshaked)
+                    return new ValueTask<bool>(true);
+            }
+            
             session.Closed += OnSessionClosed;
             _sessions.TryAdd(session.SessionID, session);
+            return new ValueTask<bool>(true);
         }
 
-        private void OnSessionClosed(object sender, EventArgs e)
+        private ValueTask OnSessionClosed(object sender, EventArgs e)
         {
             var session  = (IAppSession)sender;
 
             session.Closed -= OnSessionClosed;
             _sessions.TryRemove(session.SessionID, out IAppSession removedSession);
+            
+            return new ValueTask();
         }
 
         public IAppSession GetSessionByID(string sessionID)
@@ -40,6 +50,39 @@ namespace SuperSocket.SessionContainer
         public int GetSessionCount()
         {
             return _sessions.Count;
+        }
+
+        public IEnumerable<IAppSession> GetSessions(Predicate<IAppSession> criteria = null)
+        {
+            var enumerator = _sessions.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                var s = enumerator.Current.Value;
+
+                if (s.State != SessionState.Connected)
+                    continue;
+
+                if(criteria == null || criteria(s))
+                    yield return s;
+            }
+        }
+
+        public IEnumerable<TAppSession> GetSessions<TAppSession>(Predicate<TAppSession> criteria = null) where TAppSession : IAppSession
+        {
+            var enumerator = _sessions.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                if (enumerator.Current.Value is TAppSession s)
+                {
+                    if (s.State != SessionState.Connected)
+                        continue;
+                        
+                    if (criteria == null || criteria(s))
+                        yield return s;
+                }
+            }
         }
     }
 }

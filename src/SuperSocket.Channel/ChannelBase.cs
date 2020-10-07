@@ -1,44 +1,56 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO.Pipelines;
+using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using SuperSocket.ProtoBase;
 
 namespace SuperSocket.Channel
 {
     public abstract class ChannelBase<TPackageInfo> : IChannel<TPackageInfo>, IChannel
-        where TPackageInfo : class
     {
-        public abstract Task StartAsync();
+        public abstract void Start();
+        
+        public abstract IAsyncEnumerable<TPackageInfo> RunAsync();
 
         public abstract ValueTask SendAsync(ReadOnlyMemory<byte> buffer);
 
         public abstract ValueTask SendAsync<TPackage>(IPackageEncoder<TPackage> packageEncoder, TPackage package);
+        
+        public abstract ValueTask SendAsync(Action<PipeWriter> write);
 
-        private Func<IChannel, TPackageInfo, Task> _packageReceived;
+        public bool IsClosed { get; private set; }
 
-        public event Func<IChannel, TPackageInfo, Task> PackageReceived
-        {
-            add => _packageReceived += value;
-            remove => _packageReceived -= value;
-        }
+        public EndPoint RemoteEndPoint { get; protected set; }
 
-        protected async Task OnPackageReceived(TPackageInfo package)
-        {
-            await _packageReceived?.Invoke(this, package);
-        }
+        public EndPoint LocalEndPoint { get; protected set; }
 
-        private EventHandler _closed;
+        public CloseReason? CloseReason { get; protected set; }
 
-        public event EventHandler Closed
-        {
-            add => _closed += value;
-            remove => _closed -= value;
-        }
+        public DateTimeOffset LastActiveTime { get; protected set; } = DateTimeOffset.Now;
 
         protected virtual void OnClosed()
         {
-            _closed?.Invoke(this, EventArgs.Empty);
+            IsClosed = true;
+
+            var closed = Closed;
+
+            if (closed == null)
+                return;
+
+            if (Interlocked.CompareExchange(ref Closed, null, closed) != closed)
+                return;
+
+            var closeReason = CloseReason.HasValue ? CloseReason.Value : Channel.CloseReason.Unknown;
+
+            closed.Invoke(this, new CloseEventArgs(closeReason));
         }
 
-        public abstract void Close();
+        public event EventHandler<CloseEventArgs> Closed;
+
+        public abstract ValueTask CloseAsync(CloseReason closeReason);
+
+        public abstract ValueTask DetachAsync();
     }
 }

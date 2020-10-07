@@ -24,7 +24,7 @@ namespace SuperSocket
             try
             {
                 await socket.ConnectAsync(remoteEndpoint);
-                (server as IChannelRegister).RegisterChannel(socket);
+                await (server as IChannelRegister).RegisterChannel(socket);
                 return true;
             }
             catch (Exception e)
@@ -36,6 +36,22 @@ namespace SuperSocket
 
                 return false;
             }
+        }
+
+        public static ILogger GetDefaultLogger(this IAppSession session)
+        {
+            return (session.Server as ILoggerAccessor)?.Logger;
+        }
+
+        public static ServerOptions AddListener(this ServerOptions serverOptions, ListenOptions listener)
+        {
+            var listeners = serverOptions.Listeners;
+
+            if (listeners == null)
+                listeners = serverOptions.Listeners = new List<ListenOptions>();
+
+            listeners.Add(listener);
+            return serverOptions;
         }
     }
 }

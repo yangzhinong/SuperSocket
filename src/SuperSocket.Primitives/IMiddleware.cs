@@ -1,8 +1,16 @@
 
+using System.Threading.Tasks;
+
 namespace SuperSocket
 {
     public interface IMiddleware
     {
-        void Register(IServer server, IAppSession session);
+        int Order { get; }
+
+        void Start(IServer server);
+
+        void Shutdown(IServer server);
+
+        ValueTask<bool> RegisterSession(IAppSession session);
     }
 }

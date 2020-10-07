@@ -4,22 +4,30 @@ using SuperSocket.ProtoBase;
 
 namespace SuperSocket.Command
 {
-    public interface ICommand<TKey>
+    public interface ICommand
     {
-        TKey Key { get; }
-
-        string Name { get; }
+        // empty interface
     }
 
-    public interface ICommand<TKey, TPackageInfo> : ICommand<TKey>
-        where TPackageInfo : IKeyedPackageInfo<TKey>
+    public interface ICommand<TPackageInfo> : ICommand<IAppSession, TPackageInfo>
     {
-        void Execute(IAppSession session, TPackageInfo package);
+
     }
 
-    public interface IAsyncCommand<TKey, TPackageInfo> : ICommand<TKey>
-        where TPackageInfo : IKeyedPackageInfo<TKey>
+    public interface ICommand<TAppSession, TPackageInfo> : ICommand
+        where TAppSession : IAppSession
     {
-        Task ExecuteAsync(IAppSession session, TPackageInfo package);
+        void Execute(TAppSession session, TPackageInfo package);
+    }
+
+    public interface IAsyncCommand<TPackageInfo> : IAsyncCommand<IAppSession, TPackageInfo>
+    {
+
+    }
+
+    public interface IAsyncCommand<TAppSession, TPackageInfo> : ICommand
+        where TAppSession : IAppSession
+    {
+        ValueTask ExecuteAsync(TAppSession session, TPackageInfo package);
     }
 }

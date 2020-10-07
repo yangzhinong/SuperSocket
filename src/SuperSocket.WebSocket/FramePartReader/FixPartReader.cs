@@ -1,23 +1,31 @@
 ﻿using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using SuperSocket.ProtoBase;
 
 namespace SuperSocket.WebSocket.FramePartReader
 {
-    class FixPartReader : DataFramePartReader
+    class FixPartReader : PackagePartReader
     {
-        public override bool Process(WebSocketPackage package, ref SequenceReader<byte> reader, out IDataFramePartReader nextPartReader)
+        public override bool Process(WebSocketPackage package, object filterContext, ref SequenceReader<byte> reader, out IPackagePartReader<WebSocketPackage> nextPartReader, out bool needMoreData)
         {
             if (reader.Length < 2)
             {
-                nextPartReader = this;
+                nextPartReader = null;
+                needMoreData = true;
                 return false;
             }
 
+            needMoreData = false;
+
             reader.TryRead(out byte firstByte);
-            package.OpCode = (OpCode)firstByte;
+
+            var opCode = (OpCode)(firstByte & 0x0f);
+
+            if (opCode != OpCode.Continuation)
+            {
+                package.OpCode = opCode;
+            }
+
             package.OpCodeByte = firstByte;
 
             reader.TryRead(out byte secondByte);
@@ -26,7 +34,7 @@ namespace SuperSocket.WebSocket.FramePartReader
 
             if (package.PayloadLength >= 126)
             {
-                nextPartReader = ExtendedLenghtReader;
+                nextPartReader = ExtendedLengthReader;
             }
             else
             {
@@ -34,8 +42,7 @@ namespace SuperSocket.WebSocket.FramePartReader
                     nextPartReader = MaskKeyReader;
                 else
                 {
-                    // no body
-                    if (package.PayloadLength == 0)
+                    if (TryInitIfEmptyMessage(package))
                     {
                         nextPartReader = null;
                         return true;

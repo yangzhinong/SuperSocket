@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Threading;
 using System.Threading.Tasks;
 using System.IO.Pipelines;
 using SuperSocket.ProtoBase;
@@ -22,23 +23,31 @@ namespace SuperSocket.Channel
 
         }
 
-        public override void Close()
+        protected override void Close()
         {
             In.Writer.Complete();
             Out.Writer.Complete();
         }
 
-        protected override async ValueTask<int> SendAsync(ReadOnlySequence<byte> buffer)
+        protected override async ValueTask<int> SendOverIOAsync(ReadOnlySequence<byte> buffer, CancellationToken cancellationToken)
         {
-            foreach (var piece in buffer)
+            var writer = Out.Writer;
+            var total = 0;
+
+            foreach (var data in buffer)
             {
-                await Out.Writer.WriteAsync(piece);
+                var result = await writer.WriteAsync(data, cancellationToken);
+
+                if (result.IsCompleted)
+                    total += data.Length;
+                else if (result.IsCanceled)
+                    break;
             }
-            
-            return (int)buffer.Length;
+
+            return total;
         }
 
-        protected override ValueTask<int> FillPipeWithDataAsync(Memory<byte> memory)
+        protected override ValueTask<int> FillPipeWithDataAsync(Memory<byte> memory, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

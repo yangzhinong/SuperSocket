@@ -2,8 +2,14 @@ using System.Buffers;
 
 namespace SuperSocket.ProtoBase
 {
-    public interface IPipelineFilter<TPackageInfo>
-        where TPackageInfo : class
+    public interface IPipelineFilter
+    {
+        void Reset();
+
+        object Context { get; set; }        
+    }
+
+    public interface IPipelineFilter<TPackageInfo> : IPipelineFilter
     {
         
         IPackageDecoder<TPackageInfo> Decoder { get; set; }
@@ -11,7 +17,6 @@ namespace SuperSocket.ProtoBase
         TPackageInfo Filter(ref SequenceReader<byte> reader);
 
         IPipelineFilter<TPackageInfo> NextFilter { get; }
-
-        void Reset();
+        
     }
 }
